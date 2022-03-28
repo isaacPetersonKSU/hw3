@@ -1,3 +1,0 @@
-/homes/ijp/homeworks/hw3/build/CMakeFiles/rebuild_cache.dir
-/homes/ijp/homeworks/hw3/build/CMakeFiles/hw3_test.dir
-/homes/ijp/homeworks/hw3/build/CMakeFiles/edit_cache.dir
