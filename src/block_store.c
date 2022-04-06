@@ -12,41 +12,54 @@
 
 block_store_t *block_store_create()
 {
-    block_store_t *block_store = (block_store_t *) calloc(1, sizeof(block_store_t));
-    printf("\tblock store allocated\n");
-    
-    block_store->bitmap = bitmap_overlay(BITMAP_SIZE_BITS, &block_store->blocks[BITMAP_START_BLOCK]);
-    printf("\tbitmap %08x created at block block %d\n", *bitmap_export(block_store->bitmap), BITMAP_START_BLOCK);
+    int bitmap_blocks_count = BITMAP_SIZE_BYTES / BLOCK_SIZE_BYTES;
+    if(BITMAP_SIZE_BYTES % BLOCK_SIZE_BYTES) bitmap_blocks_count++;
+    printf("\tbitmap will occupy %d blocks\n", bitmap_blocks_count);
 
-    return block_store;
+    if(BITMAP_START_BLOCK + bitmap_blocks_count < BLOCK_STORE_NUM_BLOCKS)
+    {
+        block_store_t *block_store = (block_store_t *) calloc(1, sizeof(block_store_t));
+        printf("\tblock store allocated\n");
+
+        block_store->bitmap = bitmap_overlay(BITMAP_SIZE_BITS, &block_store->blocks[BITMAP_START_BLOCK]);
+        printf("\tbitmap created\n");
+
+        while(bitmap_blocks_count--) 
+        {
+            int block_id =  BITMAP_START_BLOCK + bitmap_blocks_count;
+            block_store_request(block_store, block_id);
+            printf("\tblock %d reserved for bitmap\n", block_id);
+        }
+        return block_store;
+    }
+    else
+    {
+        printf("ERROR: bitmap doesn't fit. Decrese bitmap size or starting block\n");
+        return NULL;
+    }
 }
 
 void block_store_destroy(block_store_t *const bs)
 {
-    // error check
-    if (bs == NULL) {
-        printf("Error with destroying block store: block store is empty\n");
-        return;
+    if(bs) //insure bitmap exists
+    {
+        bitmap_destroy(bs->bitmap); // free bitmap
+        free(bs); // free block store
     }
-
-    bitmap_destroy(bs->bitmap); // free bitmap
-    free(bs); // free block store
 }
 
 size_t block_store_allocate(block_store_t *const bs)
 {
-    // error checking (null, make sure after ffz that the block is valid block within (BLOCK_STORE_NUM_BLOCKS))
-    if (bs == NULL) {
-        printf("ERROR: Unable to allocate blocks in NULL Block Store\n");
-        return SIZE_MAX;
-    }
-
-    size_t empty = bitmap_ffz(bs->bitmap);
-    if(empty < BLOCK_STORE_AVAIL_BLOCKS)
+    if(bs) //insure block store exists (not null ptr)
     {
-        bitmap_set(bs->bitmap, empty);
-        return empty;
+        size_t empty = bitmap_ffz(bs->bitmap);
+        if(empty < BLOCK_STORE_AVAIL_BLOCKS)
+        {
+            bitmap_set(bs->bitmap, empty);
+            return empty;
+        }
     }
+    printf("\tERROR: cannot allocate in block store\n");
     return SIZE_MAX;
 }
 
@@ -88,22 +101,20 @@ size_t block_store_get_used_blocks(const block_store_t *const bs)
 size_t block_store_get_free_blocks(const block_store_t *const bs)
 {
     if(bs == NULL) return SIZE_MAX;
-    return BLOCK_STORE_AVAIL_BLOCKS - bitmap_total_set(bs->bitmap);
+    return block_store_get_total_blocks() - block_store_get_used_blocks(bs);
 }
 
 size_t block_store_get_total_blocks()
 {
+    //number of blocks in store - 1 for bitmap
     return BLOCK_STORE_AVAIL_BLOCKS;
 }
 
 size_t block_store_read(const block_store_t *const bs, const size_t block_id, void *buffer)
 {
-    if(bs != NULL && block_id < BLOCK_STORE_AVAIL_BLOCKS && buffer != NULL)
+    if(bs != NULL && block_id < BLOCK_STORE_NUM_BLOCKS && block_id != BITMAP_START_BLOCK && buffer != NULL)
     {
-        size_t block_index = block_id;
-        if(block_index >= BITMAP_START_BLOCK) block_index++;
-
-        memcpy(buffer, bs->blocks + block_index, BLOCK_SIZE_BYTES);
+        memcpy(buffer, bs->blocks + block_id, BLOCK_SIZE_BYTES);
         return BLOCK_SIZE_BYTES;
     }
     printf("block_store_read ERROR: inalid perams\n");
@@ -112,12 +123,9 @@ size_t block_store_read(const block_store_t *const bs, const size_t block_id, vo
 
 size_t block_store_write(block_store_t *const bs, const size_t block_id, const void *buffer)
 {
-    if(bs != NULL && block_id < BLOCK_STORE_AVAIL_BLOCKS && buffer != NULL)
+    if(bs != NULL && block_id < BLOCK_STORE_NUM_BLOCKS && block_id != BITMAP_START_BLOCK && buffer != NULL)
     {
-        size_t block_index = block_id;
-        if(block_index >= BITMAP_START_BLOCK) block_index++;
-
-        memcpy(bs->blocks + block_index, buffer, BLOCK_SIZE_BYTES);
+        memcpy(bs->blocks + block_id, buffer, BLOCK_SIZE_BYTES);
         return BLOCK_SIZE_BYTES;
     }
     printf("block_store_write ERROR: inalid perams\n");
@@ -137,5 +145,6 @@ size_t block_store_serialize(const block_store_t *const bs, const char *const fi
 {
     if(bs == NULL || filename == NULL) return 0;
     FILE * output = fopen(filename, "w");
+    //fwrite returns number of blocks written. Multiply by bytes per block, and return.
     return BLOCK_SIZE_BYTES * fwrite(bs, BLOCK_SIZE_BYTES, BLOCK_STORE_NUM_BLOCKS, output);
 }
