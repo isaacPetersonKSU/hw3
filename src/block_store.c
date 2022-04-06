@@ -10,8 +10,30 @@
 // remove it before you submit. Just allows things to compile initially.
 #define UNUSED(x) (void)(x)
 
+#define INVALID_MACROS_MSG "\n\tERROR: invalid macros. insure the following:\n\t\tBITMAP_SIZE_BYTES > 0 and divisable by 32\n\t\tBLOCK_SIZE_BYTES  > 0 and divisable by 32\n\t\t0 <= BITMAP_START_BLOCK < BLOCK_STORE_NUM_BLOCKS\n\n" 
+
+bool validMacros()
+{
+    if(BITMAP_SIZE_BYTES <= 0 || BITMAP_SIZE_BYTES % 32 != 0) return false;
+    if(BITMAP_SIZE_BITS != (BITMAP_SIZE_BYTES * 8)) return false;
+    if(BLOCK_STORE_NUM_BLOCKS <= 0 || BLOCK_STORE_NUM_BLOCKS % 32 != 0) return false;
+    int bitmapSizeBlocks = BITMAP_SIZE_BYTES / BLOCK_SIZE_BYTES;
+    if(BITMAP_SIZE_BYTES % BLOCK_SIZE_BYTES) bitmapSizeBlocks++;
+    if(BLOCK_STORE_AVAIL_BLOCKS != BLOCK_STORE_NUM_BLOCKS - bitmapSizeBlocks) return false;
+    if(BLOCK_SIZE_BYTES <= 0 || BLOCK_SIZE_BYTES % 32 != 0) return false;
+    if(BLOCK_SIZE_BITS != BLOCK_SIZE_BYTES * 8) return false;
+    if(BLOCK_STORE_NUM_BYTES != BLOCK_STORE_NUM_BLOCKS * BLOCK_SIZE_BYTES) return false;
+    if(BITMAP_START_BLOCK < 0 || BITMAP_START_BLOCK >= BLOCK_STORE_NUM_BLOCKS) return false;
+    return true;
+}
+
 block_store_t *block_store_create()
 {
+    if(!validMacros()){
+        printf(INVALID_MACROS_MSG);
+        return NULL;
+    }
+
     int bitmap_blocks_count = BITMAP_SIZE_BYTES / BLOCK_SIZE_BYTES;
     if(BITMAP_SIZE_BYTES % BLOCK_SIZE_BYTES) bitmap_blocks_count++;
     printf("\tbitmap will occupy %d blocks\n", bitmap_blocks_count);

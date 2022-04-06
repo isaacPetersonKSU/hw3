@@ -11,7 +11,7 @@ extern "C"
 #include "bitmap.h"
 
 // Constants
-#define BITMAP_SIZE_BYTES 1000 
+#define BITMAP_SIZE_BYTES 64
 #define BITMAP_SIZE_BITS (BITMAP_SIZE_BYTES * 8)
 #define BLOCK_STORE_NUM_BLOCKS 256   // 2^8 blocks. 
 #define BLOCK_STORE_AVAIL_BLOCKS (BLOCK_STORE_NUM_BLOCKS - 1) // block 127 is consumed by the FBM
