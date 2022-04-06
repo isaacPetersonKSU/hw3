@@ -8,21 +8,33 @@ extern "C"
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include "bitmap.h"
 
-	// Constants
-#define BITMAP_SIZE_BYTES 32         //  
-#define BLOCK_STORE_NUM_BLOCKS 256   // 2^ blocks. 
-#define BLOCK_STORE_AVAIL_BLOCKS (BLOCK_STORE_NUM_BLOCKS - 1) // First block consumed by the FBM
+// Constants
+#define BITMAP_SIZE_BYTES 64
+#define BITMAP_SIZE_BITS (BITMAP_SIZE_BYTES * 8)
+#define BLOCK_STORE_NUM_BLOCKS 256   // 2^8 blocks. 
+#define BLOCK_STORE_AVAIL_BLOCKS (BLOCK_STORE_NUM_BLOCKS - 1) // block 127 is consumed by the FBM
 #define BLOCK_SIZE_BYTES 256         // 2^8 BYTES per block
-#define BLOCK_SIZE_BITS (BLOCK_SIZE_BYTES*8)
+#define BLOCK_SIZE_BITS (BLOCK_SIZE_BYTES * 8)
 #define BLOCK_STORE_NUM_BYTES (BLOCK_STORE_NUM_BLOCKS * BLOCK_SIZE_BYTES)
+#define BITMAP_START_BLOCK 127
 
 
 	// Declaring the struct but not implementing in the header allows us to prevent users
-	//  from using the object directly and monkeying with the contents
+	// from using the object directly and monkeying with the contents
 	// They can only create pointers to the struct, which must be given out by us
 	// This enforces a black box device, but it can be restricting
 	typedef struct block_store block_store_t;
+
+	typedef struct BLOCK {
+		unsigned char block[BLOCK_SIZE_BYTES];
+	} block_t;
+
+	typedef struct block_store {
+		block_t blocks[BLOCK_STORE_NUM_BLOCKS];
+		bitmap_t *bitmap;
+	} block_store_t;
 
 	///
 	/// This creates a new BS device, ready to go
